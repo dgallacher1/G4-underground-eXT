@@ -32,6 +32,7 @@
 #include "TMath.h"
 #include "TH1D.h"
 #include "TH2D.h"
+#include "TGraph.h"
 #include "TFile.h"
 #include "Math/Vector3D.h"
 #include "Math/Rotation3D.h"
@@ -115,6 +116,8 @@ class ExternalCrossTalkProcess: public G4VDiscreteProcess
   
   ///Apply simulation input from Kurtis'
   void ApplySimInput(double wl, ROOT::Math::XYZVector &dir, ROOT::Math::XYZVector &norm);
+  ///
+  void ApplySimInputSnells(double wl, ROOT::Math::XYZVector &dir, ROOT::Math::XYZVector &norm);
 
   static bool ExternalCrossTalkProcessFlag;
 
@@ -133,9 +136,9 @@ class ExternalCrossTalkProcess: public G4VDiscreteProcess
 
   TFile *inputFile;//File containing histograms
   TH1D *hEXTWavelength;// TH1D from ROOT file of ext emission histograms 
-  TH1D *hSiRefractiveWavelength;// TH1D of Si refractive index vs wavelength 
-  TH1D *hSiO2RefractiveWavelength;// TH1D of SiO2 refractive index vs wavelength
-  TH1D *hLXeRefractiveWavelength;// TH1D of LXe refractive index vs wavelength
+  TGraph *gSiRefractiveWavelength;// TH1D of Si refractive index vs wavelength 
+  TGraph *gSiO2RefractiveWavelength;// TH1D of SiO2 refractive index vs wavelength
+  TGraph *gLXeRefractiveWavelength;// TH1D of LXe refractive index vs wavelength
 
   TFile *inputFileKurtis; // File for input from Kurtis from TRIUMF's EXT simulation data
   TH1D *hEXTWL_K; //TH1D of wavelength to be sampled from 140 nm SiO2 stack file

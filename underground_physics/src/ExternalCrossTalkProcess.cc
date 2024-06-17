@@ -34,9 +34,9 @@ ExternalCrossTalkProcess::ExternalCrossTalkProcess(
 ExternalCrossTalkProcess::~ExternalCrossTalkProcess()
 {
   
-  delete hLXeRefractiveWavelength;
-  delete hSiRefractiveWavelength;
-  delete hSiO2RefractiveWavelength;
+  delete gLXeRefractiveWavelength;
+  delete gSiRefractiveWavelength;
+  delete gSiO2RefractiveWavelength;
   delete hEXTWavelength;
   inputFile->Close();
   delete inputFile;
@@ -176,7 +176,6 @@ std::vector<G4Track*> ExternalCrossTalkProcess::CreateEXTPhotons(const G4Step& s
       for(G4int iPh = 0 ; iPh < num_ext_photons ; iPh++){
 
         G4double photonWL = GetRandomEnergy();// Sample random wl from distribution from TRIUMF
-
         //Get a random photon in 2pi
         G4double px,py,pz;
         GetRandomDir(px,py,pz);
@@ -189,7 +188,8 @@ std::vector<G4Track*> ExternalCrossTalkProcess::CreateEXTPhotons(const G4Step& s
           ApplySnellsLaw(photonWL,rV,surfNormal);
         }else if(method==1){
           //Use Kurtis's simulation output instead
-          ApplySimInput(photonWL,rV,surfNormal);
+          // ApplySimInput(photonWL,rV,surfNormal);//Old Bugged method
+          ApplySimInputSnells(photonWL,rV,surfNormal);//Updated method using Snells law for refraction, but with transmittance from Kurtis
         }
 
         //If we have selected it, don't apply refraction
@@ -209,10 +209,6 @@ std::vector<G4Track*> ExternalCrossTalkProcess::CreateEXTPhotons(const G4Step& s
           if(verboseLevel>0) G4cout <<"Making EXT Photon"<<G4endl;
         }
 
-
-        // G4cout << "Photon Direction = "<< rV.X() << ","<<rV.Y()<<","<<rV.Z()<<G4endl;
-        // rV = -rV; //Reverse so going outwards
-        // G4cout << "Rev Photon Direction = "<< rV.X() << ","<<rV.Y()<<","<<rV.Z()<<G4endl;
         // Create photon momentum direction vector
         G4ParticleMomentum photonMomentum(rV.X(), rV.Y(), rV.Z());
 
@@ -309,9 +305,9 @@ void ExternalCrossTalkProcess::ApplySnellsLaw(double wl, ROOT::Math::XYZVector &
 {
 
   //This may be slow but we can update later
-  G4double n_lxe = hLXeRefractiveWavelength->GetBinContent(hLXeRefractiveWavelength->FindBin(wl));
-  G4double n_si = hSiRefractiveWavelength->GetBinContent(hSiRefractiveWavelength->FindBin(wl));
-  G4double n_sio2 = hSiO2RefractiveWavelength->GetBinContent(hSiO2RefractiveWavelength->FindBin(wl));
+  G4double n_lxe = gLXeRefractiveWavelength->Eval(wl);
+  G4double n_si = gSiRefractiveWavelength->Eval(wl);
+  G4double n_sio2 = gSiO2RefractiveWavelength->Eval(wl);
   
   //G4cout<<" WL = " << wl << " n_lxe = "<< n_lxe << " n_si = "<< n_si << " n_sio2 = "<< n_sio2 <<G4endl;
 
@@ -345,7 +341,7 @@ void ExternalCrossTalkProcess::ApplySnellsLaw(double wl, ROOT::Math::XYZVector &
   }
 
 } 
-
+///Update May 3rd, the refraction code here is bugged, not used anymore, left for historical purposes
 //Apply simulation input as if we were refracting from Si->SiO2->LXe
 //Uses Kurtis' ANSYS Lumerical far field EM simulation for cross-talk propogation from within the SiPM to LXe
 void ExternalCrossTalkProcess::ApplySimInput(double wl, ROOT::Math::XYZVector &dir, ROOT::Math::XYZVector &norm)
@@ -372,14 +368,69 @@ void ExternalCrossTalkProcess::ApplySimInput(double wl, ROOT::Math::XYZVector &d
   }
 }
 
+//Apply simulation input as if we were refracting from Si->SiO2->LXe
+//Uses Kurtis' ANSYS Lumerical far field EM simulation for cross-talk propogation from within the SiPM to LXe
+//Manual refraction using Snells law twice instead of conversion table
+void ExternalCrossTalkProcess::ApplySimInputSnells(double wl, ROOT::Math::XYZVector &dir, ROOT::Math::XYZVector &norm)
+{
+//Get Refractive indices
+//This may be slow but we can update later
+  G4double n_lxe = gLXeRefractiveWavelength->Eval(wl);
+  G4double n_si = gSiRefractiveWavelength->Eval(wl);
+  G4double n_sio2 = gSiO2RefractiveWavelength->Eval(wl);
+  // G4cout << Form("%f,%f,%f \n",n_si,n_sio2,n_lxe);
+
+  G4double ndoti = dir.Dot(norm);//Incident dot normal
+  G4double theta = std::acos(ndoti);//Angle from surface normal to incidence ray
+  // G4cout << "Internal Theta "<<theta/TMath::Pi()*180.0 <<G4endl;
+  // G4cout << "Internal ThetaDir "<<dir.theta()/TMath::Pi()*180.0 <<G4endl;
+  G4double wl_um = wl/1000.0;
+  G4double prob_trans = hTransmission->GetBinContent(hTransmission->FindBin(wl_um,theta*180.0/TMath::Pi()));
+  G4double p_rng = gRandom->Uniform();//Random number for probability throw
+
+  if(p_rng < prob_trans){
+    //Transform Dir into new direction
+    //Get data from hConversion for new theta
+    // cout << "Theta internal "<< theta/TMath::Pi()*180.0<<endl;
+    // double theta_r = hConversion->GetBinContent(hConversion->FindBin(wl_um,theta/TMath::Pi()*180.0));// "Refract" into LXe from Si
+    // G4cout << "Theta Refracted = "<< theta_r <<G4endl;
+
+    //Snells law
+    //Calculated refracted angle wrt surface normal
+    theta = std::asin(n_si/n_sio2*std::sin(theta)); 
+    // G4cout << Form("Dir before = [%f,%f,%f]\n",dir.X(),dir.Y(),dir.Z());
+    // G4cout << "Theta from vector " <<dir.theta()/TMath::Pi()*180.0 <<G4endl;
+    double mu = n_si/n_sio2;
+    //Snells law in 3D  
+    ROOT::Math::XYZVector rVR = std::sqrt(1-mu*mu*(1-ndoti*ndoti))*norm + mu*(dir-ndoti*norm);
+    mu = n_sio2/n_lxe;//Apply next interface
+    ndoti = rVR.Dot(norm);
+    //Refract again into lxe
+    theta = std::acos(ndoti);
+    // G4cout << "Theta after SiO2 = "<< theta*180.0/TMath::Pi() <<G4endl;
+    theta = std::asin(mu*std::sin(theta));
+    // G4cout << "Theta after both = "<< theta*180.0/TMath::Pi() <<G4endl;
+    rVR = std::sqrt(1-mu*mu*(1-ndoti*ndoti))*norm + mu*(rVR-ndoti*norm);//Snells law applied in 3D
+    dir = rVR;
+    dir = dir.Unit();//Normalize to unit
+    ndoti = rVR.Dot(norm);
+    //Refract again into lxe
+    theta = std::acos(ndoti);
+    // G4cout << Form("Dir after = [%f,%f,%f]\n",dir.X(),dir.Y(),dir.Z());
+    // G4cout << "Theta from Vector = "<< theta*180.0/TMath::Pi() <<G4endl;
+   } else {
+    dir = ROOT::Math::XYZVector(0.0,0.0,-100.0);//Flag to kill photon by setting dir to -100.0
+  }
+}
+
 //Read ROOT Files from data dir
 void  ExternalCrossTalkProcess::ReadROOTFiles()
 { 
   G4cout << "ExternalCrossTalkProcess: Reading ROOT input files"<< G4endl;
   inputFile = new TFile(Form("%s/%s",std::getenv("LOLXSTLDIR"),"lolx_sim_data.root"),"READ");
-  hLXeRefractiveWavelength = (TH1D*) inputFile->Get("rindex_lxe");
-  hSiRefractiveWavelength = (TH1D*) inputFile->Get("rindex_si");
-  hSiO2RefractiveWavelength = (TH1D*) inputFile->Get("rindex_sio2");
+  gLXeRefractiveWavelength = new TGraph((TH1D*) inputFile->Get("rindex_lxe"));
+  gSiRefractiveWavelength = new TGraph((TH1D*) inputFile->Get("rindex_si"));
+  gSiO2RefractiveWavelength = new TGraph((TH1D*) inputFile->Get("rindex_sio2"));
   hEXTWavelength = (TH1D*) inputFile->Get("ext_wavelength");
 
   inputFileKurtis = new TFile(Form("%s/%s",std::getenv("LOLXSTLDIR"),"HPK_140nm_Production_And_Transmission_highd.root"),"READ");
