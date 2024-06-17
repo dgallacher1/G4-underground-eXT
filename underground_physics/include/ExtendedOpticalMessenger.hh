@@ -23,13 +23,13 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file include/LOLXExtendedOpticalMessenger.hh
-/// \brief Definition of the LOLXExtendedOpticalMessenger class
+/// \file include/ExtendedOpticalMessenger.hh
+/// \brief Definition of the ExtendedOpticalMessenger class
 /// This class handles information passed from mac file to the optical surface builder
 //
 
-#ifndef LOLXExtendedOpticalMessenger_h
-#define LOLXExtendedOpticalMessenger_h 1
+#ifndef ExtendedOpticalMessenger_h
+#define ExtendedOpticalMessenger_h 1
 
 #include "G4UImessenger.hh"
 #include "globals.hh"
@@ -46,12 +46,12 @@ class G4UIcmdWithAString;
 class G4UIdirectory;
 class LOLXOpWLS;
 
-class LOLXExtendedOpticalMessenger : public G4UImessenger
+class ExtendedOpticalMessenger : public G4UImessenger
 {
   public:
 
-    LOLXExtendedOpticalMessenger(LOLXOpWLS*);
-    virtual ~LOLXExtendedOpticalMessenger();
+    ExtendedOpticalMessenger(LOLXOpWLS*);
+    virtual ~ExtendedOpticalMessenger();
 
     virtual void SetNewValue(G4UIcommand*,G4String);
 

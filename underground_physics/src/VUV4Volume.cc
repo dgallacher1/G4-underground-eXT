@@ -23,8 +23,8 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file optical/LXe/src/LXeMainVolume.cc
-/// \brief Implementation of the LXeMainVolume class
+/// \file optical/LXe/src/VUV4Volume.cc
+/// \brief Implementation of the VUV4Volume class
 //
 //
 #include "VUV4Volume.hh"
@@ -66,8 +66,6 @@ VUV4Volume::VUV4Volume()
     G4ThreeVector  translation_ceramic(0.0,0.0,(Package_sizeZ/4.)+delta/2.); // this vectro is needed for volume subtraction
     G4SubtractionSolid* b1minusb2 = new G4SubtractionSolid("box1-box2",box1,box2,0,translation_ceramic); // creating a solid for ceramic holding structure
     //by subtracting one G4Box from another G4Box.
-    //Ceramiclogic = new G4LogicalVolume(b1minusb2, DMaterials::Get_silicon_mat(), "ceramic"); // logical volume for the ceramic holding structure
-    //Ceramiclogic = new G4LogicalVolume(box1, DMaterials::Get_xenon_mat(), "ceramic");
     Ceramiclogic = new G4LogicalVolume(b1minusb2, DMaterials::Get_fCeramic(), "ceramic");
     new G4PVPlacement(0, G4ThreeVector(), Ceramiclogic, "Ceramic", this,0, checkOverlaps);
 
@@ -78,7 +76,7 @@ VUV4Volume::VUV4Volume()
 
     G4Box* window_solid = new G4Box("QuartzWindow",Window_sizeXY/2.,Window_sizeXY/2.,Window_sizeZ/2.);
     Windowlogic = new G4LogicalVolume(window_solid, DMaterials::Get_quartz_mat(), "QuartzWindow");
-    //Add a small buffer volume between window and SiO2 to capture photons
+    //Add a small buffer volume between window and SiO2 to capture excess photons
     G4double buffer_halfheight = 0.05*mm;
     G4Box* buffer_solid = new G4Box("LXeBufferBox",Window_sizeXY/2.,Window_sizeXY/2.,buffer_halfheight);
     BufferLogic = new G4LogicalVolume(buffer_solid, DMaterials::GetDetectorMedium(), "LXeBuffer");
@@ -119,12 +117,8 @@ G4ThreeVector VUV4Volume::GetChipPosition(G4int num,G4RotationMatrix* rot,G4Thre
 
 void VUV4Volume::SurfaceProperties(){
 
-    //Flag for systematic studies
-    int efficiency_flag = 0; // 0 == nominal, 1 == 10% rel. increase above 600nm, 2 == 10% rel. decrease above 600nm
-
     const G4int NUMENTRIES1 = 850;  //from 150 to 1000
     G4double energy[NUMENTRIES1];
-    G4double reflectivity[NUMENTRIES1];
     G4double efficiency[NUMENTRIES1];
     G4double reflectivity_ceramic[NUMENTRIES1];
     G4double efficiency_ceramic[NUMENTRIES1];
@@ -133,21 +127,10 @@ void VUV4Volume::SurfaceProperties(){
     for(int iE=0; iE < NUMENTRIES1; iE++){
       G4double WL=1000.-(iE); // starting from 1000nm WL, ending with 150nm
       energy[iE]=1240./WL; // tabulate energy
-      reflectivity[iE] = 0.0;//Set reflectivity to 0 for all WLs, no longer used -DG
-      //Add reflectivity for photons above 600 nm (EXT)
-      //efficiency[iE] = 1.0;//100% efficiency to check reflectivity
-      efficiency[iE] =  LOLXReadData::GetSiPM_Efficiency(energy[iE]); // Temporarily set PDE to unity for all WLs -DG
-      //G4cout << Form("SiPM Eff (eV,E) = (%f,%f)\n",energy[iE],efficiency[iE]);
-      if(WL > 600) {
-        if(efficiency_flag == 1) efficiency[iE] = efficiency[iE]*1.1;
-        else if(efficiency_flag == 2) efficiency[iE] = efficiency[iE]*0.9;
-      }
-
+      efficiency[iE] =  GetSiPM_Efficiency(energy[iE]);  
       reflectivity_ceramic[iE] = 0.25;
       efficiency_ceramic[iE] = 0.0;
-       // printf("Wl = %f energy = %f eff = %f\n",WL,energy[iE],efficiency[iE]);
       energy[iE] *= eV;
-      reflectivity_window[iE] = 0.05;//No longer used - DG
     }
 
     //Add SiPM Optics- DG
@@ -162,13 +145,12 @@ void VUV4Volume::SurfaceProperties(){
     G4double* silicon_wl = (G4double*) si_wl_vec.data();
     G4int data_length = si_wl_vec.size();
     
-    //From Austin, perfect transmission so G4 does reflectivity calculations properly -- Causes things to crash, maybe due to different G4 versions from Austin to our sim
     G4double t = 0.0;
     G4double photonE_noTransmit[2] = {1.0*eV, 12.4*eV};
     G4double noTransmit[2] = {t, t};
     G4double noRef[2] = {1.0-t, 1.0-t};
        
-    LOLXOpticalSurface* OpSiPMSurface = new LOLXOpticalSurface("OpSiPMSurface");
+    G4OpticalSurface* OpSiPMSurface = new G4OpticalSurface("OpSiPMSurface");
     OpSiPMSurface->SetModel(lunified); //unified
     OpSiPMSurface->SetType(dielectric_metal); //_metal
     OpSiPMSurface->SetFinish(lpolished);
@@ -178,13 +160,12 @@ void VUV4Volume::SurfaceProperties(){
     SiPMTable->AddProperty("REALRINDEX",silicon_wl,silicon_real_index,data_length);
     SiPMTable->AddProperty("TRANSMITTANCE",photonE_noTransmit,noTransmit,2);
     SiPMTable->AddProperty("IMAGINARYRINDEX",silicon_wl,silicon_imaginary_index,data_length);
-    // SiPMTable->AddProperty("REFLECTIVITY",energy,reflectivity,NUMENTRIES1); // Disable reflectivity - If not present it will calculate from Fresnel using Real and Imag index (See LOLXMaterials.hh)
     SiPMTable->AddProperty("EFFICIENCY",energy,efficiency,NUMENTRIES1);
     OpSiPMSurface->SetMaterialPropertiesTable(SiPMTable);
     new G4LogicalSkinSurface("OpSiPMSurface",SiPMlogic,OpSiPMSurface);
 
     //SiO2/Quartz surface 
-    LOLXOpticalSurface* WindowSurface = new LOLXOpticalSurface("WindowSurface");
+    G4OpticalSurface* WindowSurface = new G4OpticalSurface("WindowSurface");
     WindowSurface->SetType(dielectric_dielectric);
     WindowSurface->SetModel(lunified);
     WindowSurface->SetFinish(lpolished);
@@ -207,24 +188,17 @@ void VUV4Volume::SurfaceProperties(){
     new G4LogicalSkinSurface("WindowSurface",Windowlogic,WindowSurface);
 
     //Add SiO2 Boundary Surfaces
-    LOLXOpticalSurface* SiO2Surface = new LOLXOpticalSurface("SiO2Surface");
+    G4OpticalSurface* SiO2Surface = new G4OpticalSurface("SiO2Surface");
     SiO2Surface->SetModel(lunified); //unified
     SiO2Surface->SetType(dielectric_dielectric); 
     SiO2Surface->SetFinish(lpolished);
     SiO2Surface->SetMaterialPropertiesTable(WindowTable);//Same as window
-    //Change skin on SiO2 to border->In for reflectivity and absorption out (In MainVolume_Cylindrical)
-    // new G4LogicalBorderSurface("inSiO2Surface0",LXeBuffer,SiO2Layers[0],WindowSurface);
-    // new G4LogicalBorderSurface("inSiO2Surface1",LXeBuffer,SiO2Layers[1],WindowSurface);
-    // new G4LogicalBorderSurface("inSiO2Surface2",LXeBuffer,SiO2Layers[2],WindowSurface);
-    // new G4LogicalBorderSurface("inSiO2Surface3",LXeBuffer,SiO2Layers[3],WindowSurface);
-
-    LOLXOpticalSurface* OpCeramicSurface = new LOLXOpticalSurface("OpCeramicSurface");
+   
+    G4OpticalSurface* OpCeramicSurface = new G4OpticalSurface("OpCeramicSurface");
     OpCeramicSurface->SetModel(lglisur);
     OpCeramicSurface->SetType(dielectric_metal);
     OpCeramicSurface->SetFinish(lground);
 
-    for(double &r: reflectivity_ceramic) r=0.0; // 75% Reflective ceramic MPPC holding structure
-    for(double &r: efficiency_ceramic) r=0; // zero efficiency
     G4MaterialPropertiesTable* CeramicTable = new G4MaterialPropertiesTable();
     CeramicTable->AddProperty("REFLECTIVITY",energy,reflectivity_ceramic,NUMENTRIES1);
     CeramicTable->AddProperty("EFFICIENCY",energy,efficiency_ceramic,NUMENTRIES1);
@@ -233,29 +207,24 @@ void VUV4Volume::SurfaceProperties(){
 
 }
 
-//Read in silicon data from Austin - DG
+//Read in silicon data - DG
 void VUV4Volume::GetSiData(std::vector<double>&wl, std::vector<double>&real_index, std::vector<double>&k_index){
-  const std::string filename_real = Form("%s/%s",std::getenv("LOLXSTLDIR"),"/r_index/silicon_merged_n_ev.txt");
+  const std::string filename_real = Form("%s/%s",std::getenv("UPDATEME"),"/r_index/silicon_merged_n_ev.txt");
   std::ifstream file(filename_real);
   //Read real index values
-  // G4cout << "Reading Si R-Index data.."<<G4endl;
 
   if (file.is_open()) {
       std::string line;
       // Skip the first line
       std::getline(file, line);
-      // G4cout << "Real data [(n,eV),(),...]"<<G4endl;
-      // G4cout << "[";
       while (std::getline(file, line)) {
           std::istringstream iss(line);//input string stream
           float val1, val2;
           if (iss >> val1 >> val2) {
               wl.push_back(val1*eV);
               real_index.push_back(val2);
-              // G4cout << Form("(%f,%f),",val1*eV,val2);
           }
       }
-      // G4cout << "]"<<G4endl;
       file.close();
   } else {
       std::cerr << "Unable to open file: " << filename_real << std::endl;
@@ -281,29 +250,23 @@ void VUV4Volume::GetSiData(std::vector<double>&wl, std::vector<double>&real_inde
   }
 
 }
-//Read in silicon data from Austin - DG
+//Read in silicon data  - DG
 void VUV4Volume::GetSiO2Data(std::vector<double>&wl, std::vector<double>&real_index, std::vector<double>&k_index){
   const std::string filename_real = Form("%s/%s",std::getenv("LOLXSTLDIR"),"/r_index/sio2_n_eV.txt");
   std::ifstream file(filename_real);
   //Read real index values
-//   G4cout << "Reading SiO2 R-Index data.."<<G4endl;
-
   if (file.is_open()) {
       std::string line;
       // Skip the first line
       std::getline(file, line);
-    //   G4cout << "Real data [(n,eV),(),...]"<<G4endl;
-    //   G4cout << "[";
-      while (std::getline(file, line)) {
+        while (std::getline(file, line)) {
           std::istringstream iss(line);//input string stream
           float val1, val2;
           if (iss >> val1 >> val2) {
               wl.push_back(val1*eV);
               real_index.push_back(val2);
-            //   G4cout << Form("(%f,%f),",val1*eV,val2);
           }
       }
-    //   G4cout << "]"<<G4endl;
       file.close();
   } else {
       std::cerr << "Unable to open file: " << filename_real << std::endl;

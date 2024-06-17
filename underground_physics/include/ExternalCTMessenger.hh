@@ -28,8 +28,8 @@
 //
 //
 
-#ifndef LOLXExternalCTMessenger_h
-#define LOLXExternalCTMessenger_h 1
+#ifndef ExternalCTMessenger_h
+#define ExternalCTMessenger_h 1
 
 #include "G4UImessenger.hh"
 #include "globals.hh"
@@ -46,12 +46,12 @@ class G4UIcmdWithADouble;
 class G4UIcmdWithABool;
 class G4UIcmdWithAString;
 
-class LOLXExternalCTMessenger: public G4UImessenger
+class ExternalCTMessenger: public G4UImessenger
 {
   public:
 
-    LOLXExternalCTMessenger(ExternalCrossTalkProcess*);
-    virtual ~LOLXExternalCTMessenger();
+    ExternalCTMessenger(ExternalCrossTalkProcess*);
+    virtual ~ExternalCTMessenger();
 
     virtual void SetNewValue(G4UIcommand*, G4String);
 

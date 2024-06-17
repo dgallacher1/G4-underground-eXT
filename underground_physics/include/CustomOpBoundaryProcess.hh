@@ -63,8 +63,8 @@
 //
 ////////////////////////////////////////////////////////////////////////
 
-#ifndef LOLXOpBoundaryProcess_h
-#define LOLXOpBoundaryProcess_h 1
+#ifndef CustomOpBoundaryProcess_h
+#define CustomOpBoundaryProcess_h 1
 
 /////////////
 // Includes
@@ -84,12 +84,12 @@
 #include "G4Material.hh"
 #include "G4LogicalBorderSurface.hh"
 #include "G4LogicalSkinSurface.hh"
-#include "LOLXOpticalSurface.hh"
+#include "G4OpticalSurface.hh"
 #include "G4OpticalPhoton.hh"
 #include "G4TransportationManager.hh"
 
-//LolX members
-#include "LOLXExtendedOpticalPhysics.hh"
+//Extra members
+#include "ExtendedOpticalPhysics.hh"
 #include "ExternalCrossTalkProcess.hh"
 
 //ROOT members
@@ -109,7 +109,7 @@
 // Class Definition
 /////////////////////
 //Put enum into namespace LOLXOpBoundary to prevent collision with G4OpBoundaryProcess
-enum LOLXOpBoundaryProcessStatus {  lUndefined,
+enum CustomOpBoundaryProcessStatus {  lUndefined,
                                   lTransmission, lFresnelRefraction,
                                   lFresnelReflection, lTotalInternalReflection,
                                   lLambertianReflection, lLobeReflection,
@@ -141,7 +141,7 @@ enum LOLXOpBoundaryProcessStatus {  lUndefined,
                                   lGroundVM2000AirReflection,
                                   lGroundVM2000GlueReflection,
                                   lDichroic };
-class LOLXOpBoundaryProcess : public G4VDiscreteProcess
+class CustomOpBoundaryProcess : public G4VDiscreteProcess
 {
 
 public:
@@ -150,19 +150,19 @@ public:
         // Constructors and Destructor
         ////////////////////////////////
 
-        LOLXOpBoundaryProcess(const G4String& processName = "LOLXOpBoundary",
+        CustomOpBoundaryProcess(const G4String& processName = "CustomOpBoundary",
                                      G4ProcessType type = fOptical);
-        ~LOLXOpBoundaryProcess();
+        ~CustomOpBoundaryProcess();
 
 private:
 
-        LOLXOpBoundaryProcess(const LOLXOpBoundaryProcess &right);
+        CustomOpBoundaryProcess_h(const CustomOpBoundaryProcess_h &right);
 
         //////////////
         // Operators
         //////////////
 
-        LOLXOpBoundaryProcess& operator=(const LOLXOpBoundaryProcess &right);
+        CustomOpBoundaryProcess& operator=(const CustomOpBoundaryProcess &right);
 
 public:
 
@@ -185,7 +185,7 @@ public:
                                         const G4Step&  aStep);
         // This is the method implementing boundary processes.
 
-        LOLXOpBoundaryProcessStatus GetStatus() const;
+        CustomOpBoundaryProcessStatus GetStatus() const;
         // Returns the current status.
 
         void SetInvokeSD(G4bool );
@@ -243,7 +243,7 @@ private:
         G4Material* Material1;
         G4Material* Material2;
 
-        LOLXOpticalSurface* OpticalSurface;
+        G4OpticalSurface* OpticalSurface;
 
         G4MaterialPropertyVector* PropertyPointer;
         G4MaterialPropertyVector* PropertyPointer1;
@@ -254,21 +254,16 @@ private:
 
         G4double cost1, cost2, sint1, sint2;
 
-        LOLXOpBoundaryProcessStatus theStatus;
+        CustomOpBoundaryProcessStatus theStatus;
 
-        LOLXOpticalSurfaceModel theModel;
+        G4OpticalSurfaceModel theModel;
 
-        LOLXOpticalSurfaceFinish theFinish;
+        G4UIdirectory theFinish;
 
         G4double theReflectivity;
         G4double theEfficiency;
         G4double theTransmittance;
         G4double theSurfaceRoughness;
-
-       //SiPM incident angle efficiency correction
-        G4double efficiencyCosThetaCorrection;
-        G4double efficiencyCosThetaOffset;
-
 
         G4double prob_sl, prob_ss, prob_bs;
 
@@ -291,7 +286,7 @@ private:
 ////////////////////
 
 inline
-G4bool LOLXOpBoundaryProcess::G4BooleanRand(const G4double prob) const
+G4bool CustomOpBoundaryProcess::G4BooleanRand(const G4double prob) const
 {
   /* Returns a random boolean variable with the specified probability */
 
@@ -299,26 +294,26 @@ G4bool LOLXOpBoundaryProcess::G4BooleanRand(const G4double prob) const
 }
 
 inline
-G4bool LOLXOpBoundaryProcess::IsApplicable(const G4ParticleDefinition&
+G4bool CustomOpBoundaryProcess::IsApplicable(const G4ParticleDefinition&
                                                        aParticleType)
 {
    return ( &aParticleType == G4OpticalPhoton::OpticalPhoton() );
 }
 
 inline
-LOLXOpBoundaryProcessStatus LOLXOpBoundaryProcess::GetStatus() const
+CustomOpBoundaryProcessStatus CustomOpBoundaryProcess::GetStatus() const
 {
    return theStatus;
 }
 
 inline
-void LOLXOpBoundaryProcess::SetInvokeSD(G4bool flag)
+void CustomOpBoundaryProcess::SetInvokeSD(G4bool flag)
 {
   fInvokeSD = flag;
 }
 
 inline
-void LOLXOpBoundaryProcess::ChooseReflection()
+void CustomOpBoundaryProcess::ChooseReflection()
 {
                  G4double rand = G4UniformRand();
                  if ( rand >= 0.0 && rand < prob_ss ) {
@@ -339,22 +334,11 @@ void LOLXOpBoundaryProcess::ChooseReflection()
 }
 
 inline
-void LOLXOpBoundaryProcess::DoAbsorption()
+void CustomOpBoundaryProcess::DoAbsorption()
 {
               theStatus = lAbsorption;
-              //Get angle of incidence
-              G4double incidentAngle = GetIncidentAngle();
-              incidentAngle = -1*(incidentAngle-CLHEP::pi);//Need angle WRT to surface normal
-              if(incidentAngle > CLHEP::pi/2) incidentAngle = incidentAngle - CLHEP::pi/2; //Photon is going opposite to surface normal, so flip incidence to other side
-              G4double corrEff = efficiencyCosThetaCorrection*cos(incidentAngle)+efficiencyCosThetaOffset;
-              corrEff *= theEfficiency;
-              
-            //   G4cout << Form("Absorbing photon (eff,wl) = (%f,%f)\n",theEfficiency, (CLHEP::h_Planck*CLHEP::c_light/thePhotonMomentum/CLHEP::nm));
-              
-              if (corrEff <= 0) corrEff = 0.0;
-              //if ( G4BooleanRand(corrEff) ) {//Disable for now - Unity Efficiency for all angles and WLs
+        
               if ( G4BooleanRand(theEfficiency) ) {
-               //   G4cout << "Detected photon!"<<G4endl;
                  // EnergyDeposited =/= 0 means: photon has been detected
                  theStatus = lDetection;
                  aParticleChange.ProposeLocalEnergyDeposit(thePhotonMomentum);
@@ -369,9 +353,8 @@ void LOLXOpBoundaryProcess::DoAbsorption()
 }
 
 inline
-void LOLXOpBoundaryProcess::DoReflection()
+void CustomOpBoundaryProcess::DoReflection()
 {        
-      // G4cout << "Reflection = " << theStatus <<G4endl;
         if ( theStatus == lLambertianReflection ) {
           NewMomentum = G4LambertianRand(theGlobalNormal);
           theFacetNormal = (NewMomentum - OldMomentum).unit();
@@ -385,16 +368,14 @@ void LOLXOpBoundaryProcess::DoReflection()
           G4double PdotN = OldMomentum * theFacetNormal;
           NewMomentum = OldMomentum - (2.*PdotN)*theFacetNormal;
         } else {
-         //  G4cout << "Reflecting, old mom = " << Form("[%f,%f,%f]",OldMomentum.x(),OldMomentum.y(),OldMomentum.z()) <<G4endl;
           theStatus = lSpikeReflection;
           theFacetNormal = theGlobalNormal;
           G4double PdotN = OldMomentum * theFacetNormal;
           NewMomentum = OldMomentum - (2.*PdotN)*theFacetNormal;
-         //  G4cout << "Reflecting, new mom = " << Form("[%f,%f,%f]",NewMomentum.x(),NewMomentum.y(),NewMomentum.z()) <<G4endl;
         }
         G4double EdotN = OldPolarization * theFacetNormal;
         NewPolarization = -OldPolarization + (2.*EdotN)*theFacetNormal;
 }
 
 
-#endif /* LOLXOpBoundaryProcess_h */
+#endif /* CustomOpBoundaryProcess_h */

@@ -23,16 +23,16 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file src/LOLXPMTSD.cc
-/// \brief Implementation of the LOLXPMTSD class
+/// \file src/SiPMSD.cc
+/// \brief Implementation of the SiPMSD class
 //
 //
-#include "LOLXSiPMSD.hh"
+#include "SiPMSD.hh"
 #include "G4Step.hh"
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-LOLXSiPMSD::LOLXSiPMSD(G4String name)
+SiPMSD::SiPMSD(G4String name)
   : G4VSensitiveDetector(name),SiPMHitCollection(0),SiPMPositionsX(0)
   ,SiPMPositionsY(0),SiPMPositionsZ(0)
 {
@@ -42,12 +42,12 @@ LOLXSiPMSD::LOLXSiPMSD(G4String name)
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-LOLXSiPMSD::~LOLXSiPMSD() {}
+SiPMSD::~SiPMSD() {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void LOLXSiPMSD::Initialize(G4HCofThisEvent* hitsCE){
-  SiPMHitCollection = new LOLXSiPMHitsCollection
+void SiPMSD::Initialize(G4HCofThisEvent* hitsCE){
+  SiPMHitCollection = new SiPMHitsCollection
                       (SensitiveDetectorName,collectionName[0]);
   //Store collection with event and keep ID
   static G4int hitCID = -1;
@@ -57,7 +57,7 @@ void LOLXSiPMSD::Initialize(G4HCofThisEvent* hitsCE){
   hitsCE->AddHitsCollection( hitCID, SiPMHitCollection );
 }
 
-LOLXSiPMHit* LOLXSiPMSD::createHit(const G4Step* step) {
+SiPMHit* SiPMSD::createHit(const G4Step* step) {
 
   const G4DynamicParticle* particle = step->GetTrack()->GetDynamicParticle();
   G4StepPoint* stepPoint = step->GetPostStepPoint();
@@ -65,12 +65,10 @@ LOLXSiPMHit* LOLXSiPMSD::createHit(const G4Step* step) {
 
   G4int sipmid =  4*touchable->GetReplicaNumber(1) + touchable->GetReplicaNumber(0);
   //G4int sipmid =  4*touchable->GetCopyNumber(1)+touchable->GetCopyNumber(0);
-  //printf("touchable->GetReplicaNumber(1) = %d touchable->GetReplicaNumber(0) = %d\n",touchable->GetReplicaNumber(1),touchable->GetVolume(0)->GetCopyNo());
   G4VPhysicalVolume* physVol = touchable->GetVolume(0);
-  //printf("volume = %s\n",physVol->GetName().data());
-  // printf("create hit for %d %d %d\n",sipmid,SiPMGlobalID[sipmid],SiPMPackageID[sipmid]);
+
   //Find the correct hit collection
-  LOLXSiPMHit* hit = new LOLXSiPMHit(); //so create new hit
+  SiPMHit* hit = new SiPMHit(); //so create new hit
   hit->SetSiPMPhysVol(physVol);
   hit->SetSiPMGlobalID(SiPMGlobalID[sipmid]);
   hit->SetSiPMPackageID(SiPMPackageID[sipmid]);
@@ -85,24 +83,18 @@ LOLXSiPMHit* LOLXSiPMSD::createHit(const G4Step* step) {
   if(step->GetTrack()->GetCreatorProcess()){
     if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="Scintillation") hit->SetHitProcess(1);
     else if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="Cerenkov") hit->SetHitProcess(0);
-    else if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="LOLXOpBoundary"){
+    else if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="CustomOpBoundary"){
       hit->SetHitProcess(5);
-      // G4cout << "Package ID = " <<SiPMPackageID[sipmid] << G4endl;
-      // G4cout << "Position " << stepPoint->GetPosition() << G4endl;
     }
-   else if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="LOLXOpWLS"){ 
-      hit->SetHitProcess(6);
+
   } else {hit->SetHitProcess(7);}
-  //printf("hit on SiPM %d process = %d\n",sipmid,hit->GetHitProcess());
   hit->SetDrawit(true);
  } 
   return hit;
 }
 
-//G4bool LOLXSiPMSD::ProcessHitsForced(const G4Step* step, G4TouchableHistory* ROhist)
-G4bool LOLXSiPMSD::ProcessHitsForced(const G4Step* step)
+G4bool SiPMSD::ProcessHitsForced(const G4Step* step)
 {
-  //printf("ProcessHitsForced\n");
     if(step->GetTrack()->GetDefinition()
      != G4OpticalPhoton::OpticalPhotonDefinition()) return false;
 
@@ -110,15 +102,10 @@ G4bool LOLXSiPMSD::ProcessHitsForced(const G4Step* step)
     return true;
 }
 
-G4bool LOLXSiPMSD::ProcessHits(G4Step* step, G4TouchableHistory* ROhist) {
-
-  //printf("hit sipm\n");
-
-  //try to put something in to make sure photons are not entering from wrong side.
+G4bool SiPMSD::ProcessHits(G4Step* step, G4TouchableHistory* ROhist) {
 
   if(step->GetTrack()->GetDefinition()
      != G4OpticalPhoton::OpticalPhotonDefinition()){
-    //printf("not optical photon\n");
     return false;
   }
   
@@ -127,9 +114,7 @@ G4bool LOLXSiPMSD::ProcessHits(G4Step* step, G4TouchableHistory* ROhist) {
 
   //Print some stuff
   if(step->GetTrack()->GetCreatorProcess()){
-  	// if(step->GetTrack()->GetCreatorProcess()->GetProcessName()=="eXT"){
-    //   G4cout << "Stopping ext photon ID = " << step->GetTrack()->GetTrackID()<< G4endl;
-    // }
+  
     G4StepPoint* pPostStepPoint = step->GetPostStepPoint();
     G4VPhysicalVolume* thePostPV = pPostStepPoint->GetPhysicalVolume();
     G4String postPV_name = thePostPV->GetName();
@@ -138,13 +123,7 @@ G4bool LOLXSiPMSD::ProcessHits(G4Step* step, G4TouchableHistory* ROhist) {
     G4String prePV_name = thePrePV->GetName();
     G4double edep = step->GetTotalEnergyDeposit();
 
-    // G4cout << "creator process = "<< step->GetTrack()->GetCreatorProcess()->GetProcessName()<<G4endl;
-    // G4cout << "sd step status = "<< pPostStepPoint->GetStepStatus()<<G4endl;
-    // G4cout << "Post PV name = "<< postPV_name <<G4endl;
-    // G4cout << "Pre PV name = "<< prePV_name <<G4endl;
-    // G4cout << "Step EDEP = "<< edep <<G4endl;
-
-    // // If we don't have edep, we don't have detection!!
+    //If we don't have edep, we don't have detection!!
     //Return without creating a hit
   }
 
@@ -155,27 +134,25 @@ G4bool LOLXSiPMSD::ProcessHits(G4Step* step, G4TouchableHistory* ROhist) {
     if(!step->IsFirstStepInVolume()) step->GetTrack()->SetTrackStatus(fStopAndKill);
     return true;
   }
-  // G4cout << "Creating hit" <<G4endl;
   SiPMHitCollection->insert(createHit(step));
 
   // Stop track.
-  //aParticleChange.ProposeTrackStatus(fSuspend);
   step->GetTrack()->SetTrackStatus(fStopAndKill);
   return true;
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void LOLXSiPMSD::EndOfEvent(G4HCofThisEvent* ) {}
+void SiPMSD::EndOfEvent(G4HCofThisEvent* ) {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void LOLXSiPMSD::clear() {}
+void SiPMSD::clear() {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void LOLXSiPMSD::DrawAll() {}
+void SiPMSD::DrawAll() {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void LOLXSiPMSD::PrintAll() {}
+void SiPMSD::PrintAll() {}

@@ -23,17 +23,18 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file include/LOLXExtendedOpticalPhysics.hh
-/// \brief Definition of the LOLXExtendedOpticalPhysics class
+/// \file include/ExtendedOpticalPhysics.hh
+/// \brief Definition of the ExtendedOpticalPhysics class
 //
 // Extended optical physics module to include custom physics processes for opticalphoton's
 // Includes - ExternalCrossTalkProcess: SiPM external cross-talk photon generation
 //            Produces IR photons from SiPM hits
 // Author @ David Gallacher
 // Email @ dgallacher@snolab.ca
-//
-#ifndef LOLXExtendedOpticalPhysics_h
-#define LOLXExtendedOpticalPhysics_h 1
+
+
+#ifndef ExtendedOpticalPhysics_h
+#define ExtendedOpticalPhysics_h 1
 
 #include "globals.hh"
 #include "G4ios.hh"
@@ -48,21 +49,20 @@
 #include "ExternalCrossTalkProcess.hh"
 class LOLXOpBoundaryProcess;//Forward declaration to break circular dependency between proceeses
 #include "LOLXOpBoundaryProcess.hh"
-#include "LOLXOpWLS.hh"
 
 
-class LOLXExtendedOpticalPhysics : public G4VPhysicsConstructor
+class ExtendedOpticalPhysics : public G4VPhysicsConstructor
 {
   private:
-    static LOLXExtendedOpticalPhysics* fExtendedPhysics;
+    static ExtendedOpticalPhysics* fExtendedPhysics;
 
   public:
-    static LOLXExtendedOpticalPhysics* GetExtendedOpticalPhysics();
+    static ExtendedOpticalPhysics* GetExtendedOpticalPhysics();
 
   public:
 
-    LOLXExtendedOpticalPhysics(const G4String& name = "extendedOptical");
-    virtual ~LOLXExtendedOpticalPhysics();
+    ExtendedOpticalPhysics(const G4String& name = "extendedOptical");
+    virtual ~ExtendedOpticalPhysics();
 
     // This method will be invoked in the Construct() method.
     // each particle type will be instantiated
@@ -76,12 +76,10 @@ class LOLXExtendedOpticalPhysics : public G4VPhysicsConstructor
     ExternalCrossTalkProcess* GetEXTProcess(){return theExternalCrossTalkProcess;}
 
 
-
   protected:
 
     ExternalCrossTalkProcess *theExternalCrossTalkProcess;//External Cross-talk process for SiPMs
-    LOLXOpBoundaryProcess* fBoundary;//Custom OpBoundaryProcess
-    LOLXOpWLS* fLOLXWLS; // LOLX WLS process
+    CustomOpBoundaryProcess* fBoundary;//Custom OpBoundaryProcess that invokes ExCT when photons are detected
     G4int verbose;
 
 };

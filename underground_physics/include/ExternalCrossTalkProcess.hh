@@ -28,7 +28,7 @@
 #include "G4NavigationHistory.hh"
 
 
-#include "LOLXExternalCTMessenger.hh"
+#include "ExternalCTMessenger.hh"
 #include "TMath.h"
 #include "TH1D.h"
 #include "TH2D.h"
@@ -39,7 +39,7 @@
 #include "Math/Transform3D.h"
 
 
-class LOLXExternalCTMessenger;
+class ExternalCTMessenger;
 
 class ExternalCrossTalkProcess: public G4VDiscreteProcess
 {
@@ -124,7 +124,7 @@ class ExternalCrossTalkProcess: public G4VDiscreteProcess
 
  protected:
 
-  LOLXExternalCTMessenger* messenger;
+  ExternalCTMessenger* messenger;
 
   G4int target_package_number; /// Package ID number for target, -1 is all packages
   G4int disabled_package_number;/// Package ID for disabled packages, use in combination with -1 for all targets

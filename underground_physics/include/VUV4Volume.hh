@@ -23,24 +23,22 @@
 // * acceptance of all terms of the Geant4 Software license.          *
 // ********************************************************************
 //
-/// \file include/LOLXMainVolume.hh
-/// \brief Definition of the LOLXMainVolume class
+/// \file include/VUV4Volume.hh
+/// \brief Definition of the VUV4Volume class
 //
 #ifndef VUV4Volume_H
 #define VUV4Volume_H 1
 
 #include "G4LogicalVolume.hh"
 #include "G4Box.hh"
-#include "LOLXMaterials.hh"
-#include "LOLXOpticalSurface.hh"
+#include "G4OpticalSurface.hh"
 #include "G4LogicalBorderSurface.hh"
 #include "G4SubtractionSolid.hh"
 #include "G4PVPlacement.hh"
 #include "globals.hh"
 #include "G4LogicalSkinSurface.hh"
 #include "G4SystemOfUnits.hh"
-#include "LOLXReadData.hh"
-#include "LOLXSiPMProperties.hh"
+
 #include "TVector3.h"
 
 class VUV4Volume : public G4LogicalVolume
@@ -85,8 +83,6 @@ class VUV4Volume : public G4LogicalVolume
     G4double WindowFaceZ;
     G4double SiPM_sizeXY;
     G4double SiPM_sizeZ;
-
-
 
 };
 

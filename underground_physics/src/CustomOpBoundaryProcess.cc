@@ -73,14 +73,14 @@
 // mail:        gum@triumf.ca
 //
 //
-// Modified LoLX Version
+// Modified from LoLX Version - David Gallacher, June 2024 (dgallacher@snolab.ca)
 ////////////////////////////////////////////////////////////////////////
 
 #include "G4ios.hh"
 #include "G4PhysicalConstants.hh"
 #include "G4OpProcessSubType.hh"
 
-#include "LOLXOpBoundaryProcess.hh"
+#include "CustomOpBoundaryProcess.hh"
 #include "G4GeometryTolerance.hh"
 
 #include "G4VSensitiveDetector.hh"
@@ -104,11 +104,10 @@
         // Constructors
         /////////////////
 
-LOLXOpBoundaryProcess::LOLXOpBoundaryProcess(const G4String& processName,
+CustomOpBoundaryProcess::CustomOpBoundaryProcess(const G4String& processName,
                                                G4ProcessType type)
              : G4VDiscreteProcess(processName, type)
 {
-        //verboseLevel = 1;
         if ( verboseLevel > 0) {
            G4cout << GetProcessName() << " is created " << G4endl;
         }
@@ -152,12 +151,10 @@ LOLXOpBoundaryProcess::LOLXOpBoundaryProcess(const G4String& processName,
         DichroicVectorA = NULL;  // Additional vector for the absorbance
         fInvokeSD = true;
 
-        //Hardcoded SiPM angular dependence fit to data from https://arxiv.org/abs/1910.06438
-        efficiencyCosThetaCorrection = 0.529;
-        efficiencyCosThetaOffset = 0.4386;
+
 }
 
-// LOLXOpBoundaryProcess::LOLXOpBoundaryProcess(const LOLXOpBoundaryProcess &right)
+// CustomOpBoundaryProcess::CustomOpBoundaryProcess(const CustomOpBoundaryProcess &right)
 // {
 // }
 
@@ -165,7 +162,7 @@ LOLXOpBoundaryProcess::LOLXOpBoundaryProcess(const G4String& processName,
         // Destructors
         ////////////////
 
-LOLXOpBoundaryProcess::~LOLXOpBoundaryProcess(){}
+CustomOpBoundaryProcess::~CustomOpBoundaryProcess(){}
 
         ////////////
         // Methods
@@ -176,11 +173,9 @@ LOLXOpBoundaryProcess::~LOLXOpBoundaryProcess(){}
 //
 
 G4VParticleChange*
-LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
+CustomOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
 {
-        //G4cout << "Start of LOLXOpBoundaryProcess PostStepDoIt"<<G4endl;
         theStatus = lUndefined;
-        //verboseLevel=1;
         aParticleChange.Initialize(aTrack);
         aParticleChange.ProposeVelocity(aTrack.GetVelocity());
 
@@ -206,7 +201,6 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
             BoundaryProcessVerbose();
            return G4VDiscreteProcess::PostStepDoIt(aTrack, aStep);
         }
-      //  std::cout<<" Material 1 "<< Material1->GetName() <<" Material 2 "<< Material2->GetName()<<"\n";
         G4VPhysicalVolume* thePrePV  =
                                pStep->GetPreStepPoint() ->GetPhysicalVolume();
         G4VPhysicalVolume* thePostPV =
@@ -259,10 +253,10 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
         else
         {
           G4ExceptionDescription ed;
-          ed << " LOLXOpBoundaryProcess/PostStepDoIt(): "
+          ed << " CustomOpBoundaryProcess/PostStepDoIt(): "
                  << " The Navigator reports that it returned an invalid normal"
                  << G4endl;
-          G4Exception("LOLXOpBoundaryProcess::PostStepDoIt", "OpBoun01",
+          G4Exception("CustomOpBoundaryProcess::PostStepDoIt", "OpBoun01",
                       EventMustBeAborted,ed,
                       "Invalid Surface Normal - Geometry must return valid surface normal");
         }
@@ -270,7 +264,7 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
         if (OldMomentum * theGlobalNormal > 0.0) {
 #ifdef G4OPTICAL_DEBUG
            G4ExceptionDescription ed;
-           ed << " LOLXOpBoundaryProcess/PostStepDoIt(): "
+           ed << " CustomOpBoundaryProcess/PostStepDoIt(): "
               << " theGlobalNormal points in a wrong direction. "
               << G4endl;
            ed << "    The momentum of the photon arriving at interface (oldMomentum)"
@@ -280,7 +274,7 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
            ed << "     Old Momentum  (during step)     = " << OldMomentum << G4endl;
            ed << "     Global Normal (Exiting New Vol) = " << theGlobalNormal << G4endl;
            ed << G4endl;
-           G4Exception("LOLXOpBoundaryProcess::PostStepDoIt", "OpBoun02",
+           G4Exception("CustomOpBoundaryProcess::PostStepDoIt", "OpBoun02",
                        EventMustBeAborted,  // Or JustWarning to see if it happens repeatedbly on one ray
                        ed,
                       "Invalid Surface Normal - Geometry must return valid surface normal pointing in the right direction");
@@ -356,7 +350,7 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
 	}
 
         if (Surface) OpticalSurface =
-           dynamic_cast <LOLXOpticalSurface*> (Surface->GetSurfaceProperty());
+           dynamic_cast <G4OpticalSurface*> (Surface->GetSurfaceProperty());
 
         if (OpticalSurface!=NULL) {
 
@@ -399,7 +393,6 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
 
                  theReflectivity =
                           PropertyPointer->Value(thePhotonMomentum);
-               //   G4cout << "TheReflectivity is = "<< theReflectivity <<G4endl;
 
               } else if (PropertyPointer1 && PropertyPointer2) {
                  CalculateReflectivity();
@@ -411,7 +404,7 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
               if (PropertyPointer) {
                       theEfficiency =
                       PropertyPointer->Value(thePhotonMomentum);
-                     // G4cout << "LOLXOpBoundaryProcess The efficiency = "<< theEfficiency << G4endl;
+                     // G4cout << "CustomOpBoundaryProcess The efficiency = "<< theEfficiency << G4endl;
               }
 
               PropertyPointer =
@@ -518,19 +511,16 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
           }
           else {
              G4double rand = G4UniformRand();
-            //  G4cout << "theReflectivity ="<<theReflectivity<<G4endl;
              if ( rand > theReflectivity ) {
                 if (rand > theReflectivity + theTransmittance) {
                    DoAbsorption();
                 } else {
-                  // G4cout << "Transmitted 525"<<G4endl;
                    theStatus = lTransmission;
                    NewMomentum = OldMomentum;
                    NewPolarization = OldPolarization;
                 }
              }
              else {
-               //  G4cout << "Passed Reflectivity Throw"<<G4endl;
                 if ( theFinish == lpolishedfrontpainted ) {
                    DoReflection();
                 }
@@ -551,10 +541,8 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
 
         }
         
-      //   G4cout << "New Direction! Status = "<< theStatus <<G4endl;
         NewMomentum = NewMomentum.unit();
         NewPolarization = NewPolarization.unit();
-      //   G4cout << " New Momentum Direction: " << NewMomentum     << G4endl;
 
         if ( verboseLevel > 0) {
            G4cout << " New Momentum Direction: " << NewMomentum     << G4endl;
@@ -572,14 +560,10 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
            aParticleChange.ProposeVelocity(finalVelocity);
         }
 
-        // G4cout << "Invoke SD flag = "<< fInvokeSD <<G4endl;
-        // G4cout << "theStatus flag = ";
-        // BoundaryProcessVerbose();
         if ( theStatus == lDetection && fInvokeSD ){
           //Call SDManager to produce hits on SiPMs
           //Call the EXT Process to produce cross-talk photons
-         //  G4cout << "Detection!"<<G4endl;
-          ExternalCrossTalkProcess* theExtProcess = LOLXExtendedOpticalPhysics::GetExtendedOpticalPhysics()->GetEXTProcess();
+          ExternalCrossTalkProcess* theExtProcess = ExtendedOpticalPhysics::GetExtendedOpticalPhysics()->GetEXTProcess();
           std::vector<G4Track*> tracks = theExtProcess->CreateEXTPhotons(aStep);
           uint nsecondaries = tracks.size();
           for(uint iS = 0; iS < nsecondaries ; iS++){
@@ -591,7 +575,7 @@ LOLXOpBoundaryProcess::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
         return G4VDiscreteProcess::PostStepDoIt(aTrack, aStep);
 }
 
-void LOLXOpBoundaryProcess::BoundaryProcessVerbose() const
+void CustomOpBoundaryProcess::BoundaryProcessVerbose() const
 {
         if ( theStatus == lUndefined )
                 G4cout << " *** Undefined *** " << G4endl;
@@ -676,7 +660,7 @@ void LOLXOpBoundaryProcess::BoundaryProcessVerbose() const
 }
 
 G4ThreeVector
-LOLXOpBoundaryProcess::GetFacetNormal(const G4ThreeVector& Momentum,
+CustomOpBoundaryProcess::GetFacetNormal(const G4ThreeVector& Momentum,
 			            const G4ThreeVector&  Normal ) const
 {
         G4ThreeVector FacetNormal;
@@ -753,25 +737,19 @@ LOLXOpBoundaryProcess::GetFacetNormal(const G4ThreeVector& Momentum,
         return FacetNormal;
 }
 
-void LOLXOpBoundaryProcess::DielectricMetal()
+void CustomOpBoundaryProcess::DielectricMetal()
 {
         G4int n = 0;
         G4double rand, PdotN, EdotN;
         G4ThreeVector A_trans, A_paral;
 
-      //   G4cout << "Here DM: refl = "<< theReflectivity <<G4endl;
-      //   G4cout << "TheTransmittance = "<<theTransmittance <<G4endl;
-
         do {
            n++;
            rand = G4UniformRand();
            if ( rand > theReflectivity && n == 1 ) {
-            //   G4cout << "Here 1: R = "<< theReflectivity <<G4endl;
               if (rand > theReflectivity + theTransmittance) {
-               //  G4cout << "Here 2: Absorption (Detection)" <<G4endl;
                 DoAbsorption();
               } else {
-               //  G4cout << "Here 3: Reflection" <<G4endl;
                 theStatus = lTransmission;
                 NewMomentum = OldMomentum;
                 NewPolarization = OldPolarization;
@@ -779,11 +757,9 @@ void LOLXOpBoundaryProcess::DielectricMetal()
               break;
            } else {
              if (PropertyPointer1 && PropertyPointer2) {
-               //  G4cout << "Here 4: Calculate Refl from n,k" <<G4endl;
                 if ( n > 1 ) {
                    CalculateReflectivity();
                    if ( !G4BooleanRand(theReflectivity) ) {
-                     //  G4cout << "Here 2.1: Absorption (Detection)" <<G4endl;
                       DoAbsorption();
                       break;
                    }
@@ -791,7 +767,6 @@ void LOLXOpBoundaryProcess::DielectricMetal()
              }
 
              if ( theModel == lglisur || theFinish == lpolished ) {
-               // G4cout << "Here 5: Reflection::Polished" <<G4endl;
                DoReflection();
              } else {
 
@@ -839,24 +814,20 @@ void LOLXOpBoundaryProcess::DielectricMetal()
                 }
 
              }
-            //  G4cout << "Here 6: Flip"<<G4endl;
              OldMomentum = NewMomentum;
              OldPolarization = NewPolarization;
 	   }
-      // G4cout << "Here 7: Around the loop again" <<G4endl; 
-      // G4cout << "NewMom*GlobalNormal = "<< NewMomentum * theGlobalNormal <<G4endl;
-          // Loop checking, 13-Aug-2015, Peter Gumplinger
+           // Loop checking, 13-Aug-2015, Peter Gumplinger
 	} while (NewMomentum * theGlobalNormal < 0.0);
-   // G4cout << "Here 8: End of the road"<<G4endl;
 }
 
-void LOLXOpBoundaryProcess::DielectricLUT()
+void CustomOpBoundaryProcess::DielectricLUT()
 {
         G4int thetaIndex, phiIndex;
         G4double AngularDistributionValue, thetaRad, phiRad, EdotN;
         G4ThreeVector PerpendicularVectorTheta, PerpendicularVectorPhi;
 
-        theStatus = LOLXOpBoundaryProcessStatus(G4int(theFinish) +
+        theStatus = CustomOpBoundaryProcessStatus(G4int(theFinish) +
                            (G4int(lNoRINDEX)-G4int(lgroundbackpainted)));
 
         G4int thetaIndexMax = OpticalSurface->GetThetaIndexMax();
@@ -920,7 +891,7 @@ void LOLXOpBoundaryProcess::DielectricLUT()
         } while (NewMomentum * theGlobalNormal <= 0.0);
 }
 
-void LOLXOpBoundaryProcess::DielectricLUTDAVIS()
+void CustomOpBoundaryProcess::DielectricLUTDAVIS()
 {
   G4int angindex, random, angleIncident;
   G4double ReflectivityValue, elevation, azimuth, EdotN;
@@ -1014,92 +985,47 @@ void LOLXOpBoundaryProcess::DielectricLUTDAVIS()
   } while (NewMomentum * theGlobalNormal <= 0.0);
 }
 
-void LOLXOpBoundaryProcess::DielectricDichroic()
+void CustomOpBoundaryProcess::DielectricDichroic()
 {
-        //G4cout << "In LOLXOpBoundaryProcess::DielectricDichroic" << G4endl;
         // Calculate Angle between Normal and Photon Momentum
         G4double anglePhotonToNormal = OldMomentum.angle(-theGlobalNormal);
 
         // Round it to closest integer
         G4double angleIncident = std::floor(180/pi*anglePhotonToNormal+0.5);
 
-        //G4cout << "Incident wavelength [nm] = "<<  h_Planck*c_light/thePhotonMomentum/nm << G4endl;
 
         if (DichroicVector==NULL)
         {
            if (OpticalSurface!=NULL)
            {
-            // G4cout << "Reading OpticalSurface (GetDichroicVector)"<< G4endl;
              DichroicVector = OpticalSurface->GetDichroicVector();
              DichroicVectorA = OpticalSurface->GetDichroicVectorA();
            }
         }
 
-        //G4cout << "Incident angle = "<< angleIncident << G4endl;
 
         if (DichroicVector!=NULL) {
            G4double wavelength = h_Planck*c_light/thePhotonMomentum;
            theTransmittance =
              DichroicVector->Value(wavelength/nm,angleIncident,idx,idy)*perCent;
-              // for debug:
 
-		          // G4double absorbance = DichroicVectorA->Value(wavelength/nm,angleIncident,idxA,idyA)*perCent;
-              // theAbsorb =DichroicVectorA->Value(wavelength/nm,angleIncident,idxA,idyA)*perCent;
-              //G4double theAbsorb= DichroicVectorA->Value(wavelength/nm,angleIncident,idxA,idyA)*perCent;
-              // G4cout << " New event***************************************" << G4endl;
-              //    G4cout << "wavelength: " << std::floor(wavelength/nm)
-              //                             << "nm" << G4endl;
-              //    G4cout << "Incident angle: " << angleIncident << "deg" << G4endl;
-              //    G4cout << "Transmittance: " << std::floor(theTransmittance/perCent) << "%" << G4endl;
-              //    G4cout << " Transmittance is :" << theTransmittance << G4endl;
-              //G4double absorb;
-          /*  for(int i=100;i<1000;i++){
-               wavelength=i;
-
-               G4cout<< " WL="<< wavelength<< G4endl;
-               theTransmittance = DichroicVector->Value(wavelength,angleIncident,idx,idy)*perCent;
-               G4cout << "Transmittance: " << theTransmittance << G4endl;
-               G4double absorb = DichroicVectorA->Value(wavelength,angleIncident,idxA,idyA)*perCent;
-                G4cout <<" Absorbance is"<< absorb<<G4endl;
-
-             } */  //<---- THIS was for DEBUG
-          //  G4cout << " WL is " << wavelength/nm<< G4endl;
-      //      G4cout << "Absorbance is"<< theAbsorb<< G4endl;
         } else {
            G4ExceptionDescription ed;
-           ed << " LOLXOpBoundaryProcess/DielectricDichroic(): "
+           ed << " CustomOpBoundaryProcess/DielectricDichroic(): "
               << " The dichroic surface has no G4Physics2DVector"
               << G4endl;
-           G4Exception("LOLXOpBoundaryProcess::DielectricDichroic", "OpBoun03",
+           G4Exception("CustomOpBoundaryProcess::DielectricDichroic", "OpBoun03",
                        FatalException,ed,
                        "A dichroic surface must have an associated G4Physics2DVector");
         }
 
         G4double rand = G4UniformRand();
-        // replace the following statement:
-        //if ( !G4BooleanRand(theTransmittance) ) { // Not transmitted, so reflect
-        // with the one examining rand, since we introduce Absorption
-
-        //G4cout << "Downtown rand = "<< rand << G4endl;
 
         if( rand> theTransmittance) {
          G4double wavelength= h_Planck*c_light/thePhotonMomentum;
-         //G4double absorbance = .6*170*170*170/wavelength/wavelength/wavelength;
          G4double absorbance = 0;
-         //G4cout << "Downtown wl = "<< wavelength/nm << G4endl;
-         // calculate absorbance  from the DichroicVectorA
-         //DichoricVectorA->Dump();
          absorbance = DichroicVectorA->Value(wavelength/nm,angleIncident)*perCent;
-          //G4cout << "absorption = " << absorbance << G4endl;
-         //G4cout <<" Absorbance is"<< absorbance<< " for WL="<<wavelength/nm<< G4endl;
-         //G4cout <<" theTransmittance is"<< theTransmittance<< " for WL="<<wavelength/nm<< G4endl;
-          //G4cout <<" theTransmittance + absorbance is"<< theTransmittance+absorbance<< " for WL="<<wavelength/nm<< G4endl;
-         //G4cout <<" Rand is "<< rand << G4endl;
-         //G4cout << "Downtown absorbance = "<< absorbance << G4endl;
-         // absorbance= 0; // uncomment to set absorbance to 0
-
-          if(rand> (theTransmittance+absorbance)) {
-            //   G4cout <<" Reflected!! " <<G4endl;
+         if(rand> (theTransmittance+absorbance)) {
            if ( theModel == lglisur || theFinish == lpolished ) {
               DoReflection();
            } else {
@@ -1135,13 +1061,11 @@ void LOLXOpBoundaryProcess::DielectricDichroic()
         }
 }
 
-void LOLXOpBoundaryProcess::DielectricDielectric()
+void CustomOpBoundaryProcess::DielectricDielectric()
 {
         G4bool Inside = false;
         G4bool Swap = false;
         G4bool SurfaceRoughnessCriterionPass = 1;
-      //   G4cout << "Here DD: transmit = "<< theTransmittance <<G4endl;
-      //   G4cout << "Here DD: theSurfaceRoughness = "<< theSurfaceRoughness <<G4endl;
         if (theSurfaceRoughness != 0. && Rindex1 > Rindex2) {
            G4double wavelength = h_Planck*c_light/thePhotonMomentum;
            G4double SurfaceRoughnessCriterion =
@@ -1263,12 +1187,9 @@ void LOLXOpBoundaryProcess::DielectricDielectric()
               else if (cost1 != 0.0) TransCoeff = s2/s1;
               else TransCoeff = 0.0;
 
-            //   G4cout << "Transmission Coeff = "<<TransCoeff <<G4endl;
 
               if ( !G4BooleanRand(TransCoeff) ) {
-               //   G4cout << "DD Reflection Coeff = "<<1.0-TransCoeff <<G4endl;
-               //   G4cout << "Material 1 = " << Material1->GetName()<<G4endl;
-               //   G4cout << "Material 2 = " << Material2->GetName()<<G4endl;
+         
                //   // Simulate reflection
 
                  if (Swap) Swap = !Swap;
@@ -1320,16 +1241,10 @@ void LOLXOpBoundaryProcess::DielectricDielectric()
                     }
                  }
               }
-              else { // photon gets transmitted
-               // G4cout << "Transmitted!"<<G4endl;
-                // Simulate transmission/refraction
-               // std::cout<<" Transmitted  :  Material 1 "<< Material1->GetName() <<" Material 2 "<< Material2->GetName()<<"\n";
-             //   if(Material2->GetName() == "filter_Quartz_BP")
-               //     { std::cout<<" Transmittance  :  "<< theTransmittance<<"\n";}
+              else { 
                 Inside = !Inside;
                 Through = true;
                 theStatus = lFresnelRefraction;
-                //printf("Transmittance = %f and Photon get transmitted\n",theTransmittance);
                 if (sint1 > 0.0) {      // incident ray oblique
 
                    alpha = cost1 - cost2*(Rindex2/Rindex1);
@@ -1408,7 +1323,7 @@ void LOLXOpBoundaryProcess::DielectricDielectric()
 // GetMeanFreePath
 // ---------------
 //
-G4double LOLXOpBoundaryProcess::GetMeanFreePath(const G4Track& ,
+G4double CustomOpBoundaryProcess::GetMeanFreePath(const G4Track& ,
                                               G4double ,
                                               G4ForceCondition* condition)
 {
@@ -1417,7 +1332,7 @@ G4double LOLXOpBoundaryProcess::GetMeanFreePath(const G4Track& ,
   return DBL_MAX;
 }
 
-G4double LOLXOpBoundaryProcess::GetIncidentAngle()
+G4double CustomOpBoundaryProcess::GetIncidentAngle()
 {
   G4double PdotN = OldMomentum * theFacetNormal;
   G4double magP= OldMomentum.mag();
@@ -1427,7 +1342,7 @@ G4double LOLXOpBoundaryProcess::GetIncidentAngle()
   return incidentangle;
 }
 
-G4double LOLXOpBoundaryProcess::GetReflectivity(G4double E1_perp,
+G4double CustomOpBoundaryProcess::GetReflectivity(G4double E1_perp,
                                               G4double E1_parl,
                                               G4double incidentangle,
                                               G4double RealRindex,
@@ -1492,7 +1407,7 @@ G4double LOLXOpBoundaryProcess::GetReflectivity(G4double E1_perp,
 
 }
 
-void LOLXOpBoundaryProcess::CalculateReflectivity()
+void CustomOpBoundaryProcess::CalculateReflectivity()
 {
   G4double RealRindex =
            PropertyPointer1->Value(thePhotonMomentum);
@@ -1545,10 +1460,9 @@ void LOLXOpBoundaryProcess::CalculateReflectivity()
   theReflectivity =
              GetReflectivity(E1_perp, E1_parl, incidentangle,
                                                  RealRindex, ImaginaryRindex);
-   // G4cout << Form("CalculateReflectivity: R at %f eV = %f",thePhotonMomentum/1e-6,theReflectivity)<<G4endl;
 }
 
-G4bool LOLXOpBoundaryProcess::InvokeSD(const G4Step* pStep)
+G4bool CustomOpBoundaryProcess::InvokeSD(const G4Step* pStep)
 {
   G4Step aStep = *pStep;
 
